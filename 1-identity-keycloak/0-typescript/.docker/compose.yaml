@@ -1,0 +1,78 @@
+# Identity & Keycloak lab stack (TypeScript/NestJS) — Keycloak SSO + NestJS API.
+#
+# Working directory: 1-identity-keycloak/0-typescript/.docker
+# Start:    docker compose up -d --build
+# Logs:     docker compose logs -f api-service
+# Teardown: docker compose down -v
+
+name: m8-keycloak-ts
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak-pg:/var/lib/postgresql/data
+    networks:
+      - m8-keycloak-ts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import
+    networks:
+      - m8-keycloak-ts
+
+  # NestJS API Service — Keycloak auth demo (public + confidential client).
+  api-service:
+    build:
+      context: ../api-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      APP_BASE_URL: http://localhost:3000
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: starci-realm
+      KEYCLOAK_PUBLIC_CLIENT_ID: nestjs-app
+      KEYCLOAK_PRIVATE_CLIENT_ID: nestjs-private-app
+      KEYCLOAK_PRIVATE_CLIENT_SECRET: super-secret-key
+      KEYCLOAK_DEFAULT_USERNAME: student
+      KEYCLOAK_DEFAULT_PASSWORD: student123
+      KEYCLOAK_REDIRECT_URI: http://localhost:3000/auth/callback
+    depends_on:
+      - keycloak
+    ports:
+      - "3000:3000"
+    networks:
+      - m8-keycloak-ts
+
+volumes:
+  keycloak-pg:
+
+networks:
+  m8-keycloak-ts:
+    name: m8-keycloak-ts

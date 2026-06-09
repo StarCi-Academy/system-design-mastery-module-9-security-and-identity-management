@@ -1,0 +1,14 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod ./
+COPY service-b ./service-b
+
+RUN CGO_ENABLED=0 go build -o /service-b ./service-b
+
+FROM alpine:3.20
+
+COPY --from=builder /service-b /service-b
+
+CMD ["/service-b"]

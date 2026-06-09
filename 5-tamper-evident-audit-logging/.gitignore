@@ -1,0 +1,7 @@
+node_modules/
+dist/
+target/
+bin/
+obj/
+*.log
+compose_test.yaml

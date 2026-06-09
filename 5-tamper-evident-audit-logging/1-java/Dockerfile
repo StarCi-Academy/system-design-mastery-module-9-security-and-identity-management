@@ -1,0 +1,15 @@
+FROM maven:3.9-eclipse-temurin-21 AS builder
+
+WORKDIR /app
+COPY pom.xml ./
+RUN mvn -q dependency:go-offline
+
+COPY src ./src
+RUN mvn -q clean package -DskipTests
+
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+COPY --from=builder /app/target/audit-log-api-0.0.1.jar ./app.jar
+
+CMD ["java", "-jar", "app.jar"]

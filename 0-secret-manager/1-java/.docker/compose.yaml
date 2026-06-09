@@ -1,0 +1,69 @@
+# "Secret Management" lab stack — HashiCorp Vault + PostgreSQL + Spring Boot app.
+#
+# Working directory: 0-secret-manager/1-java/.docker
+#
+# Launch:
+# 1. docker compose up -d vault postgres
+# 2. docker exec 0-secret-manager-vault-1 vault kv put secret/my-app DB_PASSWORD=123456
+# 3. docker compose up -d api-service --build
+#
+# Cleanup: docker compose down -v
+
+name: 0-secret-manager
+
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - 0-secret-manager
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    networks:
+      - 0-secret-manager
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d userdb || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "root"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "admin"
+      DB_NAME: "userdb"
+      # Note: NO DB_PASSWORD environment variable here.
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault:
+        condition: service_started
+    networks:
+      - 0-secret-manager
+
+networks:
+  0-secret-manager:
+    name: 0-secret-manager

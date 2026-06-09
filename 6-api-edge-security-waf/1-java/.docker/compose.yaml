@@ -1,0 +1,40 @@
+# "API Edge Security — WAF" lab stack (Java track): WAF gateway + backend echo.
+#
+# Working directory: 6-api-edge-security-waf/1-java/.docker
+# Launch:   docker compose up -d --build
+# Cleanup:  docker compose down -v
+#
+# Contract (identical across all four language tracks):
+#   POST /api/echo  clean    -> 200 {"status":"allowed","echo":{...}}
+#   POST /api/echo  malicious-> 403 {"status":"blocked","rule":"sql_injection|xss|ssrf"}
+#   GET  /healthz            -> 200 {"status":"ok"}
+
+name: 6-api-edge-security-waf-java
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: "4000"
+    networks:
+      - 6-api-edge-security-waf-java
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      BACKEND_URL: "http://backend:4000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - 6-api-edge-security-waf-java
+
+networks:
+  6-api-edge-security-waf-java:
+    name: 6-api-edge-security-waf-java

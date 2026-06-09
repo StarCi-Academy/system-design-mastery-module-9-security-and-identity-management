@@ -1,0 +1,51 @@
+# "Tamper-evident audit logging" lab stack — PostgreSQL + NestJS hash-chain API.
+#
+# Working directory: 5-tamper-evident-audit-logging/0-typescript/.docker
+#
+# Launch: docker compose up -d --build
+# Cleanup: docker compose down -v
+
+name: 5-tamper-evident-audit-logging
+
+services:
+  # PostgreSQL — append-only audit store. The hash chain lives in the audit_events table.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auditdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    networks:
+      - 5-tamper-evident-audit-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d auditdb || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # NestJS API — appends hash-chained events and recomputes the chain on GET /verify.
+  audit-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "admin"
+      DB_PASSWORD: "123456"
+      DB_NAME: "auditdb"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - 5-tamper-evident-audit-logging
+
+networks:
+  5-tamper-evident-audit-logging:
+    name: 5-tamper-evident-audit-logging

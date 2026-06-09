@@ -1,0 +1,40 @@
+# Fine-grained authorization lab stack (C#/ASP.NET Core) — app + OPA decision engine.
+#
+# Working directory: 3-fine-grained-authorization-policy-engine/2-csharp/.docker
+# Start:    docker compose up -d --build
+# Teardown: docker compose down -v
+
+name: m8-3-fga-csharp
+
+services:
+  opa:
+    image: openpolicyagent/opa:0.69.0
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - /policies
+    volumes:
+      - ./opa/policies:/policies:ro
+    ports:
+      - "8181:8181"
+    networks:
+      - m8-3-fga-csharp
+
+  api-service:
+    build:
+      context: ../api-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      OPA_BASE_URL: http://opa:8181
+    depends_on:
+      - opa
+    ports:
+      - "3000:3000"
+    networks:
+      - m8-3-fga-csharp
+
+networks:
+  m8-3-fga-csharp:
+    name: m8-3-fga-csharp

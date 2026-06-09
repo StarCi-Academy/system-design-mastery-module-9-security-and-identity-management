@@ -1,0 +1,47 @@
+# Standalone E2E compose for C# — unique high ports to avoid conflict with parallel sessions.
+# Host: API=4153, Postgres=5443
+# Launch: docker compose -f compose.e2e.yaml up -d --build
+# Cleanup: docker compose -f compose.e2e.yaml down -v
+name: e2e-tal-csharp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auditdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5443:5432"
+    networks:
+      - e2e-tal-csharp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d auditdb || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  audit-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "admin"
+      DB_PASSWORD: "123456"
+      DB_NAME: "auditdb"
+    ports:
+      - "4153:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - e2e-tal-csharp
+
+networks:
+  e2e-tal-csharp:
+    name: e2e-tal-csharp
+    driver: bridge

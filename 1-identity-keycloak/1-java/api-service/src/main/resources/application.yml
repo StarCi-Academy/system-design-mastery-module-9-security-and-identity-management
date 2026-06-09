@@ -1,0 +1,20 @@
+# Spring Boot config — server port + Keycloak resource-server + token-broker settings.
+server:
+  port: ${PORT:3000}
+  address: 0.0.0.0
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri lets Spring auto-discover the JWKS endpoint (offline validation).
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/starci-realm}
+
+keycloak:
+  base-url: ${KEYCLOAK_BASE_URL:http://keycloak:8080}
+  realm: ${KEYCLOAK_REALM:starci-realm}
+  public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID:spring-app}
+  private-client-id: ${KEYCLOAK_PRIVATE_CLIENT_ID:spring-private-app}
+  private-client-secret: ${KEYCLOAK_PRIVATE_CLIENT_SECRET:super-secret-key}
+  redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:3000/auth/callback}

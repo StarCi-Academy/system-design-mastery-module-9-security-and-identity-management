@@ -1,0 +1,9 @@
+# Temporary port override for E2E audit run — avoids port conflicts with parallel sessions.
+# Host port 3100→3000 (API), 5440→5432 (Postgres). Delete after E2E is complete.
+services:
+  postgres:
+    ports:
+      - "5441:5432"
+  audit-api:
+    ports:
+      - "4151:3000"

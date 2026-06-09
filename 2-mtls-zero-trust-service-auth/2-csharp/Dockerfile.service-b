@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
+
+WORKDIR /src
+
+COPY service-b/service-b.csproj ./service-b/
+RUN dotnet restore service-b/service-b.csproj
+
+COPY service-b ./service-b
+RUN dotnet publish service-b/service-b.csproj -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+
+WORKDIR /app
+COPY --from=builder /app ./
+
+ENTRYPOINT ["dotnet", "service-b.dll"]

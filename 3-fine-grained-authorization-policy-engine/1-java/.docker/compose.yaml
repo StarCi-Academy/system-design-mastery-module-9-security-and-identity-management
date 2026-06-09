@@ -1,0 +1,40 @@
+# Fine-grained authorization lab stack (Java/Spring Boot) — app + OPA decision engine.
+#
+# Working directory: 3-fine-grained-authorization-policy-engine/1-java/.docker
+# Start:    docker compose up -d --build
+# Teardown: docker compose down -v
+
+name: m8-3-fga-java
+
+services:
+  opa:
+    image: openpolicyagent/opa:0.69.0
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - /policies
+    volumes:
+      - ./opa/policies:/policies:ro
+    ports:
+      - "8181:8181"
+    networks:
+      - m8-3-fga-java
+
+  api-service:
+    build:
+      context: ../api-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      OPA_BASE_URL: http://opa:8181
+    depends_on:
+      - opa
+    ports:
+      - "3000:3000"
+    networks:
+      - m8-3-fga-java
+
+networks:
+  m8-3-fga-java:
+    name: m8-3-fga-java

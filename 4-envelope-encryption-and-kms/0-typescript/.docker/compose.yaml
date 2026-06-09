@@ -1,0 +1,70 @@
+# "Envelope encryption + KMS" lab stack — HashiCorp Vault Transit + PostgreSQL + NestJS app.
+#
+# Working directory: 4-envelope-encryption-and-kms/0-typescript/.docker
+#
+# Launch: docker compose up -d --build
+# Cleanup: docker compose down -v
+
+name: 4-envelope-encryption-and-kms
+
+services:
+  # HashiCorp Vault — the KMS (Transit engine) in dev mode (memory storage, root token: root).
+  # The KEK lives only here; the app sends it the DEK to wrap and never sees the KEK material.
+  vault:
+    image: hashicorp/vault:1.15
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - 4-envelope-encryption-and-kms
+
+  # PostgreSQL — stores ONLY ciphertext + wrapped DEK. A full dump is useless without the KEK.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vaultdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    networks:
+      - 4-envelope-encryption-and-kms
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d vaultdb || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # NestJS API service — generates a per-record DEK, wraps it via Vault Transit, stores the envelope.
+  api-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "root"
+      KEK_NAME: "app-kek"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "admin"
+      DB_PASSWORD: "123456"
+      DB_NAME: "vaultdb"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault:
+        condition: service_started
+    networks:
+      - 4-envelope-encryption-and-kms
+
+networks:
+  4-envelope-encryption-and-kms:
+    name: 4-envelope-encryption-and-kms

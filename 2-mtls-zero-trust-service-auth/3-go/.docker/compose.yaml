@@ -1,0 +1,59 @@
+# mTLS Zero-Trust lab stack — internal CA + service-b (mTLS server) + service-a (mTLS client).
+#
+# Working directory: 2-mtls-zero-trust-service-auth/3-go/.docker
+#
+# Launch: docker compose up -d --build
+# Cleanup: docker compose down -v
+
+name: 2-mtls-zero-trust-service-auth
+
+services:
+  cert-init:
+    image: alpine:3.20
+    volumes:
+      - certs:/certs
+      - ./gen-certs.sh:/gen-certs.sh:ro
+    command: ["sh", "-c", "apk add --no-cache openssl >/dev/null && sh /gen-certs.sh"]
+
+  service-b:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service-b
+    environment:
+      PORT: "8443"
+      CERTS_DIR: "/certs"
+    volumes:
+      - certs:/certs:ro
+    networks:
+      - 2-mtls-zero-trust-service-auth
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+
+  service-a:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service-a
+    environment:
+      PORT: "3000"
+      CERTS_DIR: "/certs"
+      SERVICE_B_HOST: "service-b"
+      SERVICE_B_PORT: "8443"
+    volumes:
+      - certs:/certs:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - 2-mtls-zero-trust-service-auth
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+      service-b:
+        condition: service_started
+
+volumes:
+  certs:
+
+networks:
+  2-mtls-zero-trust-service-auth:
+    name: 2-mtls-zero-trust-service-auth

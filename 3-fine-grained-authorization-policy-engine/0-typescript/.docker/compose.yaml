@@ -1,0 +1,43 @@
+# Fine-grained authorization lab stack (TypeScript/NestJS) — app + OPA decision engine.
+#
+# Working directory: 3-fine-grained-authorization-policy-engine/0-typescript/.docker
+# Start:    docker compose up -d --build
+# Logs:     docker compose logs -f api-service
+# Teardown: docker compose down -v
+
+name: m8-3-fga-ts
+
+services:
+  # Open Policy Agent — loads the shared Rego policies and serves the decision API.
+  opa:
+    image: openpolicyagent/opa:0.69.0
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - /policies
+    volumes:
+      - ./opa/policies:/policies:ro
+    ports:
+      - "8181:8181"
+    networks:
+      - m8-3-fga-ts
+
+  # NestJS API — the authz middleware. Holds NO policy; calls OPA per request.
+  api-service:
+    build:
+      context: ../api-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3000"
+      OPA_BASE_URL: http://opa:8181
+    depends_on:
+      - opa
+    ports:
+      - "3000:3000"
+    networks:
+      - m8-3-fga-ts
+
+networks:
+  m8-3-fga-ts:
+    name: m8-3-fga-ts
